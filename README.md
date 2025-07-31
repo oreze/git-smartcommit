@@ -117,7 +117,7 @@ $STAGED_DIFF"
 # ...
 ```
 
-You can also change the Gemini model used (e.g., to `gemini-2.5-flash-latest` for faster, cheaper generation) by updating the URL in the `curl` command inside the script.
+You can also change the Gemini model used (e.g., to `gemini-2.5-flash` for faster, cheaper generation) by updating the URL in the `curl` command inside the script.
 
 ## Troubleshooting
 
