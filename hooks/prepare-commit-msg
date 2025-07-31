@@ -1,0 +1,48 @@
+#!/bin/bash
+
+COMMIT_MSG_FILE=$1
+
+if [ "$2" = "merge" ] || [ "$2" = "squash" ] || [ "$2" = "amend" ]; then
+    exit 0
+fi
+
+STAGED_DIFF=$(git diff --staged)
+
+if [ -z "$STAGED_DIFF" ]; then
+    echo "No staged changes to generate a commit message for."
+    exit 0
+fi
+
+GEMINI_API_KEY=$(git config --get google.geminiapikey)
+
+PROMPT="Based on the following git diff, please generate a concise and descriptive commit message. The message should follow the Conventional Commits specification. The diff is:
+
+$STAGED_DIFF"
+
+JSON_PAYLOAD=$(jq -n --arg prompt "$PROMPT" \
+  '{ "contents": [ { "parts": [ { "text": $prompt } ] } ] }')
+
+GEMINI_RESPONSE=$(curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent" \
+    -H "Content-Type: application/json" \
+    -H "x-goog-api-key: $GEMINI_API_KEY" \
+    -d "$JSON_PAYLOAD")
+
+if [ $? -ne 0 ]; then
+    echo "Error: Failed to connect to Gemini API."
+    exit 1
+fi
+
+GENERATED_MESSAGE=$(echo "$GEMINI_RESPONSE" | jq -r '.candidates[0].content.parts[0].text' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+
+if [ -z "$GENERATED_MESSAGE" ] || [ "$GENERATED_MESSAGE" = "null" ]; then
+    echo "Error: Could not extract message from Gemini API response."
+    echo "API Response: $GEMINI_RESPONSE" # For debugging
+    exit 1
+fi
+
+echo -e "$GENERATED_MESSAGE" > "$COMMIT_MSG_FILE"
+
+echo -e "\n# --- AI Generated ---" >> "$COMMIT_MSG_FILE"
+echo -e "\n# Diff used to generate the message:\n# $(echo "$STAGED_DIFF" | head -n 10 | sed 's/^/# /')" >> "$COMMIT_MSG_FILE"
+
+exit 0
