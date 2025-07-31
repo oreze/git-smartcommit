@@ -15,7 +15,7 @@ fi
 
 GEMINI_API_KEY=$(git config --get google.geminiapikey)
 
-PROMPT="Based on the following git diff, please generate a concise and descriptive commit message. The message should follow the Conventional Commits specification. The diff is:
+PROMPT="Based on the following git diff, please generate a concise and descriptive commit message. The message should follow the Conventional Commits specification and be in text format, no markdown. The diff is:
 
 $STAGED_DIFF"
 
@@ -34,8 +34,7 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-GENERATED_MESSAGE=$(echo "$GEMINI_RESPONSE" | jq -r '.candidates[0].content.parts[0].text' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
-
+GENERATED_MESSAGE=$(echo "$GEMINI_RESPONSE" | jq -r '.candidates[0].content.parts[0].text' | sed '/^```/d' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
 if [ -z "$GENERATED_MESSAGE" ] || [ "$GENERATED_MESSAGE" = "null" ]; then
     echo "Error: Could not extract message from Gemini API response."
     echo "API Response: $GEMINI_RESPONSE" # For debugging
