@@ -2,27 +2,44 @@
 
 COMMIT_MSG_FILE=$1
 
+# Exit if this is a merge, squash, or amend commit
 if [ "$2" = "merge" ] || [ "$2" = "squash" ] || [ "$2" = "amend" ]; then
     exit 0
 fi
 
 STAGED_DIFF=$(git diff --staged)
 
-if [ -z "$STAGED_DIFF" ]; then
+if [ -z "$STAGED_DIFF" ];
+then
     echo "No staged changes to generate a commit message for."
     exit 0
 fi
 
+BRANCH_NAME=$(git branch --show-current)
+CHANGED_FILES=$(git diff --name-only --staged)
+
 GEMINI_API_KEY=$(git config --get google.geminiapikey)
 
-PROMPT="Based on the following git diff, generate a concise commit message. The message must follow the Conventional Commits specification. The title must be a maximum of 50 characters. Only add a body if the changes are complex and require it. The output should be plain text, no markdown. The diff is:
+PROMPT="Based on the following context, generate a concise commit message that follows the Conventional Commits specification.
 
+### Context
+- **Branch Name:** $BRANCH_NAME
+- **Changed Files:**
+$CHANGED_FILES
+
+### Instructions
+1. The commit title must be a maximum of 50 characters.
+2. The title should be in the format: \`type(scope): subject\`.
+3. Only add a body if the changes are complex and require further explanation.
+4. The entire output should be plain text, not markdown.
+
+### Git Diff
 $STAGED_DIFF"
 
 JSON_PAYLOAD=$(jq -n --arg prompt "$PROMPT" \
   '{ "contents": [ { "parts": [ { "text": $prompt } ] } ] }')
 
-echo "Generating commit message from staged changes..." # <-- This is the added status message
+echo "Generating commit message from staged changes..."
 
 GEMINI_RESPONSE=$(curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent" \
     -H "Content-Type: application/json" \
@@ -44,6 +61,9 @@ fi
 echo -e "$GENERATED_MESSAGE" > "$COMMIT_MSG_FILE"
 
 echo -e "\n# --- AI Generated ---" >> "$COMMIT_MSG_FILE"
+echo -e "\n# Context used to generate the message:" >> "$COMMIT_MSG_FILE"
+echo -e "# Branch: $BRANCH_NAME" >> "$COMMIT_MSG_FILE"
+echo -e "# Changed Files:\n# $(echo "$CHANGED_FILES" | sed 's/^/# /')" >> "$COMMIT_MSG_FILE"
 echo -e "\n# Diff used to generate the message:\n# $(echo "$STAGED_DIFF" | head -n 10 | sed 's/^/# /')" >> "$COMMIT_MSG_FILE"
 
 exit 0
