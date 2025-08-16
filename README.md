@@ -124,4 +124,3 @@ You can also change the Gemini model used (e.g., to `gemini-2.5-flash` for faste
 If you see an error like `Error: Could not extract message from Gemini API response`, the script will print the full API response to your console. This is useful for debugging. The most common issues are:
 -   An invalid or missing API key (`git config --get google.geminiapikey` returns nothing).
 -   `jq` is not installed on your system.
--   A network issue is preventing connection to the Google API.
